@@ -5,6 +5,7 @@
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
+#![allow(unused_variables)]
 
 use core::any::Any;
 use core::mem::MaybeUninit;
@@ -13,6 +14,28 @@ use core::sync::atomic::*;
 use std::num::Wrapping;
 use std::sync::{mpsc::channel, Arc, Barrier};
 use zeroize::Zeroize;
+
+// Make sure no one accidentally uses this in shipping code.
+#[cfg(not(use_mock_crypto))]
+compile_error!(
+    "This is a fake crypto crate that bypasses verification/signing. \
+     If you really want to use it set RUSTFLAGS='--cfg use_mock_crypto'"
+);
+
+// Really try to make sure no one accidentally uses this in shipping code.
+fn print_warning() {
+    thread_local! {
+        static WARNING: () = {
+            eprintln!("------------------------------------------------------------");
+            eprintln!("WARNING: Cryptographic signing/verification has been mocked,");
+            eprintln!("         in order to speed up non-crypto-related tests. If");
+            eprintln!("         you are not running a test, stop now!");
+            eprintln!("------------------------------------------------------------");
+        };
+    }
+
+    WARNING.with(|_| ());
+}
 
 #[cfg(not(feature = "no-threads"))]
 trait ThreadPoolExt {
@@ -602,6 +625,9 @@ macro_rules! sig_variant_impl {
                 dst: &[u8],
                 aug: &[u8],
             ) -> Signature {
+                let sig_aff = <$sig_aff>::default();
+                Signature { point: sig_aff }
+                /*
                 // TODO - would the user like the serialized/compressed sig as well?
                 let mut q = <$sig>::default();
                 let mut sig_aff = <$sig_aff>::default();
@@ -619,6 +645,7 @@ macro_rules! sig_variant_impl {
                     $sign(ptr::null_mut(), &mut sig_aff, &q, &self.value);
                 }
                 Signature { point: sig_aff }
+                */
             }
 
             // TODO - formally speaking application is entitled to have
@@ -924,6 +951,9 @@ macro_rules! sig_variant_impl {
                 pks: &[&PublicKey],
                 pks_validate: bool,
             ) -> BLST_ERROR {
+                print_warning();
+                BLST_ERROR::BLST_SUCCESS
+                /*
                 let n_elems = pks.len();
                 if n_elems == 0 || msgs.len() != n_elems {
                     return BLST_ERROR::BLST_VERIFY_FAIL;
@@ -994,6 +1024,7 @@ macro_rules! sig_variant_impl {
                 } else {
                     BLST_ERROR::BLST_VERIFY_FAIL
                 }
+                */
             }
 
             // pks are assumed to be verified for proof of possession,
@@ -1005,6 +1036,9 @@ macro_rules! sig_variant_impl {
                 dst: &[u8],
                 pks: &[&PublicKey],
             ) -> BLST_ERROR {
+                print_warning();
+                BLST_ERROR::BLST_SUCCESS
+                /*
                 let agg_pk = match AggregatePublicKey::aggregate(pks, false) {
                     Ok(agg_sig) => agg_sig,
                     Err(err) => return err,
@@ -1017,6 +1051,7 @@ macro_rules! sig_variant_impl {
                     &[&pk],
                     false,
                 )
+                */
             }
 
             pub fn fast_aggregate_verify_pre_aggregated(
@@ -1040,6 +1075,9 @@ macro_rules! sig_variant_impl {
                 rands: &[blst_scalar],
                 rand_bits: usize,
             ) -> BLST_ERROR {
+                print_warning();
+                BLST_ERROR::BLST_SUCCESS
+                /*
                 let n_elems = pks.len();
                 if n_elems == 0
                     || msgs.len() != n_elems
@@ -1105,6 +1143,7 @@ macro_rules! sig_variant_impl {
                 } else {
                     BLST_ERROR::BLST_VERIFY_FAIL
                 }
+                */
             }
 
             pub fn from_aggregate(agg_sig: &AggregateSignature) -> Self {
